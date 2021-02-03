@@ -4,7 +4,7 @@ import time
 
 import tensorflow as tf
 from models import Encoder, BahdanauAttention, Decoder
-from data import get_dataset
+from data import DatasetLoader
 
 DATA_PATH = "data.txt"
 NUM_EXAMPLES = 1000
@@ -14,14 +14,23 @@ END_TOKEN = "$"
 EMBEDDING_DIM = 32
 RNN_UNITS = 32
 
-CHECKPOINT_DIR = "training_checkpoints"
+CHECKPOINT_DIR = "checkpoints"
 CHECKPOINT_PREFIX = os.path.join(CHECKPOINT_DIR, "ckpt")
 
 BATCH_SIZE = 1
 EPOCHS = 40
 LERANING_RATE = 0.01
 
-dataset = get_dataset(DATA_PATH, BATCH_SIZE, NUM_EXAMPLES)
+datatset_loader = DatasetLoader(DATA_PATH, BATCH_SIZE, NUM_EXAMPLES)
+
+dataset = datatset_loader.get_dataset()
+
+INPUT_VOCAB_SIZE = datatset_loader.input_vocab_size
+TARGET_VOCAB_SIZE = datatset_loader.target_vocab_size
+
+target_sequence_tokenizer = datatset_loader.target_sequence_tokenizer
+
+STEPS_PER_EPOCH = datatset_loader.input_tensor_length // BATCH_SIZE
 
 encoder = Encoder(INPUT_VOCAB_SIZE, EMBEDDING_DIM, RNN_UNITS, BATCH_SIZE)
 decoder = Decoder(TARGET_VOCAB_SIZE, EMBEDDING_DIM, RNN_UNITS, BATCH_SIZE)
@@ -52,7 +61,9 @@ def train_step(inp, targ, enc_hidden):
     with tf.GradientTape() as tape:
         enc_output, enc_hidden = encoder(inp, enc_hidden)
         dec_hidden = enc_hidden
-        dec_input = tf.expand_dims([target_sequence.word_index[START_TOKEN]] * BATCH_SIZE, 1)
+        dec_input = tf.expand_dims(
+            [target_sequence_tokenizer.word_index[START_TOKEN]] * BATCH_SIZE, 1
+        )
 
         for t in range(1, targ.shape[1]):
             predictions, dec_hidden, _ = decoder(dec_input, dec_hidden, enc_output)
